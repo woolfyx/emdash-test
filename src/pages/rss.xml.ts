@@ -7,7 +7,7 @@ export const GET: APIRoute = async ({ site, url }) => {
 	const siteUrl = site?.toString() || url.origin;
 	const { siteTitle, siteTagline } = resolveBlogSiteIdentity(await getSiteSettings());
 
-	const { entries: posts } = await getEmDashCollection("posts", {
+	const { entries: posts } = await getEmDashCollection("photos", {
 		orderBy: { published_at: "desc" },
 		limit: 20,
 	});
@@ -17,9 +17,9 @@ export const GET: APIRoute = async ({ site, url }) => {
 			if (!post.data.publishedAt) return null;
 			const pubDate = post.data.publishedAt.toUTCString();
 
-			const postUrl = `${siteUrl}/posts/${post.id}`;
-			const title = escapeXml(post.data.title || "Untitled");
-			const description = escapeXml(post.data.excerpt || "");
+			const postUrl = `${siteUrl}/photos/${post.id}`;
+			const title = escapeXml(post.data.title || "Sans titre");
+			const description = escapeXml(post.data.location || "");
 
 			return `    <item>
       <title>${title}</title>
@@ -39,7 +39,7 @@ export const GET: APIRoute = async ({ site, url }) => {
     <description>${escapeXml(siteTagline)}</description>
     <link>${siteUrl}</link>
     <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml"/>
-    <language>en-us</language>
+    <language>fr-fr</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 ${items}
   </channel>

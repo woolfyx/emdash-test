@@ -1,0 +1,264 @@
+---
+import { getEmDashCollection, getTermsForEntries, getTaxonomyTerms } from "emdash";
+import Base from "../../layouts/Base.astro";
+import PhotoCard from "../../components/PhotoCard.astro";
+
+const { searchParams } = Astro.url;
+const activeGenre = searchParams.get("genre") ?? null;
+const activeLocation = searchParams.get("location") ?? null;
+
+// Fetch all published photos + filter terms
+const [{ entries: photos, cacheHint }, genres, locations] = await Promise.all([
+	getEmDashCollection("photos", {
+		orderBy: { published_at: "desc" },
+		limit: 100,
+	}),
+	getTaxonomyTerms("genre"),
+	getTaxonomyTerms("location"),
+]);
+
+Astro.cache.set(cacheHint);
+
+const genresByEntry = await getTermsForEntries(
+	"photos",
+	photos.map((p) => p.data.id),
+	"genre"
+);
+const locationsByEntry = await getTermsForEntries(
+	"photos",
+	photos.map((p) => p.data.id),
+	"location"
+);
+
+// Client-side filtering via URL params (applied at render time)
+const filteredPhotos = photos.filter((photo) => {
+	const photoGenres = (genresByEntry.get(photo.data.id) ?? []).map((t) => t.slug);
+	const photoLocations = (locationsByEntry.get(photo.data.id) ?? []).map((t) => t.slug);
+	if (activeGenre && !photoGenres.includes(activeGenre)) return false;
+	if (activeLocation && !photoLocations.includes(activeLocation)) return false;
+	return true;
+});
+
+const photosWithGenres = filteredPhotos.map((photo) => ({
+	photo,
+	genres: (genresByEntry.get(photo.data.id) ?? []).map((t) => ({
+		slug: t.slug,
+		label: t.label,
+	})),
+}));
+
+const activeLabel =
+	activeGenre
+		? genres.find((g) => g.slug === activeGenre)?.label
+		: activeLocation
+			? locations.find((l) => l.slug === activeLocation)?.label
+			: null;
+---
+
+<Base title={activeLabel ? `${activeLabel} — Galerie` : "Galerie"} description="Toutes les photographies">
+	<div class="gallery-page">
+		<header class="gallery-header">
+			<h1 class="gallery-title">
+				{activeLabel ?? "Galerie"}
+			</h1>
+			<p class="gallery-count">{filteredPhotos.length} photo{filteredPhotos.length !== 1 ? "s" : ""}</p>
+		</header>
+
+		<div class="filters-bar">
+			<div class="filter-group">
+				<span class="filter-label">Genre</span>
+				<div class="filter-pills">
+					<a
+						href="/photos"
+						class={`filter-pill${!activeGenre && !activeLocation ? " filter-pill--active" : ""}`}
+					>
+						Tous
+					</a>
+					{
+						genres.map((genre) => (
+							<a
+								href={`/photos?genre=${genre.slug}`}
+								class={`filter-pill${activeGenre === genre.slug ? " filter-pill--active" : ""}`}
+							>
+								{genre.label}
+							</a>
+						))
+					}
+				</div>
+			</div>
+			<div class="filter-group">
+				<span class="filter-label">Destination</span>
+				<div class="filter-pills">
+					{
+						locations.map((loc) => (
+							<a
+								href={`/photos?location=${loc.slug}`}
+								class={`filter-pill${activeLocation === loc.slug ? " filter-pill--active" : ""}`}
+							>
+								{loc.label}
+							</a>
+						))
+					}
+				</div>
+			</div>
+		</div>
+
+		{
+			filteredPhotos.length === 0 ? (
+				<div class="empty-state">
+					<p>Aucune photo pour cette sélection.</p>
+					<a href="/photos" class="clear-link">Effacer les filtres</a>
+				</div>
+			) : (
+				<div class="masonry-grid">
+					{photosWithGenres.map(({ photo, genres: g }, i) => (
+						<div class="masonry-item">
+							<PhotoCard
+								title={photo.data.title ?? "Sans titre"}
+								location={photo.data.location}
+								featuredImage={photo.data.featured_image}
+								href={`/photos/${photo.id}`}
+								genres={g}
+								aspectRatio={i % 4 === 2 ? "portrait" : "landscape"}
+							/>
+						</div>
+					))}
+				</div>
+			)
+		}
+	</div>
+</Base>
+
+<style>
+	.gallery-page {
+		max-width: var(--wide-width);
+		margin: 0 auto;
+		padding: var(--spacing-12) var(--spacing-8);
+	}
+
+	.gallery-header {
+		display: flex;
+		align-items: baseline;
+		gap: var(--spacing-4);
+		margin-bottom: var(--spacing-8);
+	}
+
+	.gallery-title {
+		font-size: var(--font-size-3xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+	}
+
+	.gallery-count {
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+	}
+
+	/* Filters */
+	.filters-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-6);
+		margin-bottom: var(--spacing-10);
+		padding-bottom: var(--spacing-6);
+		border-bottom: 1px solid var(--color-border-subtle);
+	}
+
+	.filter-group {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		flex-wrap: wrap;
+	}
+
+	.filter-label {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.filter-pills {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-2);
+	}
+
+	.filter-pill {
+		display: inline-block;
+		padding: var(--spacing-1) var(--spacing-3);
+		border: 1px solid var(--color-border);
+		border-radius: 999px;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background var(--transition-fast);
+	}
+
+	.filter-pill:hover {
+		color: var(--color-accent);
+		border-color: var(--color-accent);
+	}
+
+	.filter-pill--active {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: white;
+	}
+
+	.filter-pill--active:hover {
+		color: white;
+	}
+
+	/* Masonry */
+	.masonry-grid {
+		columns: 3;
+		column-gap: var(--spacing-3);
+	}
+
+	.masonry-item {
+		break-inside: avoid;
+		margin-bottom: var(--spacing-3);
+	}
+
+	/* Empty */
+	.empty-state {
+		text-align: center;
+		padding: var(--spacing-20) var(--spacing-6);
+		color: var(--color-muted);
+	}
+
+	.clear-link {
+		display: inline-block;
+		margin-top: var(--spacing-4);
+		color: var(--color-accent);
+		text-decoration: none;
+		font-size: var(--font-size-sm);
+	}
+
+	@media (max-width: 1024px) {
+		.masonry-grid {
+			columns: 2;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.gallery-page {
+			padding: var(--spacing-8) var(--spacing-4);
+		}
+
+		.masonry-grid {
+			columns: 1;
+		}
+
+		.filters-bar {
+			flex-direction: column;
+			gap: var(--spacing-4);
+		}
+	}
+</style>

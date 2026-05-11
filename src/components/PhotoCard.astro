@@ -1,0 +1,156 @@
+---
+import type { MediaValue } from "emdash";
+import { Image } from "emdash/ui";
+
+interface Props {
+	title: string;
+	location?: string;
+	featuredImage?: MediaValue | string;
+	href: string;
+	genres?: Array<{ slug: string; label: string }>;
+	aspectRatio?: "square" | "landscape" | "portrait";
+}
+
+const {
+	title,
+	location,
+	featuredImage,
+	href,
+	genres,
+	aspectRatio = "landscape",
+} = Astro.props;
+---
+
+<a href={href} class={`photo-card photo-card--${aspectRatio}`}>
+	{
+		featuredImage ? (
+			<div class="card-image">
+				<Image image={featuredImage} />
+			</div>
+		) : (
+			<div class="card-placeholder" />
+		)
+	}
+	<div class="card-overlay">
+		<div class="card-overlay-content">
+			{
+				genres && genres.length > 0 && (
+					<div class="card-genres">
+						{genres.slice(0, 2).map((g) => (
+							<span class="card-genre">{g.label}</span>
+						))}
+					</div>
+				)
+			}
+			<h2 class="card-title">{title}</h2>
+			{location && <p class="card-location">{location}</p>}
+		</div>
+	</div>
+</a>
+
+<style>
+	.photo-card {
+		display: block;
+		position: relative;
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		text-decoration: none;
+		color: white;
+	}
+
+	.photo-card--landscape .card-image,
+	.photo-card--landscape .card-placeholder {
+		aspect-ratio: 3 / 2;
+	}
+
+	.photo-card--square .card-image,
+	.photo-card--square .card-placeholder {
+		aspect-ratio: 1 / 1;
+	}
+
+	.photo-card--portrait .card-image,
+	.photo-card--portrait .card-placeholder {
+		aspect-ratio: 2 / 3;
+	}
+
+	.card-placeholder {
+		background: var(--color-surface);
+	}
+
+	.card-image {
+		width: 100%;
+		overflow: hidden;
+	}
+
+	.card-image :global(img) {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transition: transform 0.5s ease;
+		display: block;
+	}
+
+	.photo-card:hover .card-image :global(img) {
+		transform: scale(1.04);
+	}
+
+	.card-overlay {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			to top,
+			rgba(0, 0, 0, 0.75) 0%,
+			rgba(0, 0, 0, 0.2) 50%,
+			transparent 100%
+		);
+		display: flex;
+		align-items: flex-end;
+		opacity: 0;
+		transition: opacity 0.3s ease;
+	}
+
+	.photo-card:hover .card-overlay,
+	.photo-card:focus-visible .card-overlay {
+		opacity: 1;
+	}
+
+	.card-overlay-content {
+		padding: var(--spacing-5);
+		width: 100%;
+	}
+
+	.card-genres {
+		display: flex;
+		gap: var(--spacing-2);
+		margin-bottom: var(--spacing-2);
+	}
+
+	.card-genre {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--color-accent);
+		font-weight: 500;
+	}
+
+	.card-title {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		line-height: var(--leading-snug);
+		letter-spacing: var(--tracking-snug);
+		color: white;
+		margin-bottom: var(--spacing-1);
+	}
+
+	.card-location {
+		font-size: var(--font-size-sm);
+		color: rgba(255, 255, 255, 0.7);
+		margin: 0;
+	}
+
+	.photo-card:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+</style>

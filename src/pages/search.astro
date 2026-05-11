@@ -6,40 +6,36 @@ import Base from "../layouts/Base.astro";
 
 const query = Astro.url.searchParams.get("q")?.trim() || "";
 
-// Use the FTS-backed search() API instead of loading every post and
-// filtering in JS. FTS scales as the post count grows, returns ranked
-// results, and handles tokenization/stemming. Templates that grep all
-// post bodies in JS quickly become unusable past a few hundred posts.
 const { items: results } = query
-	? await search(query, { collections: ["posts"], limit: 30 })
+	? await search(query, { collections: ["photos", "pages"], limit: 30 })
 	: { items: [] };
 ---
 
 <Base
-	title={query ? `Search: ${query}` : "Search"}
-	description="Search blog posts"
+	title={query ? `Recherche : ${query}` : "Recherche"}
+	description="Rechercher des photos"
 >
 	<section class="search-page">
-		<h1 class="search-title">Search</h1>
+		<h1 class="search-title">Recherche</h1>
 
 		<form method="get" action="/search" class="search-form">
 			<input
 				type="search"
 				name="q"
 				value={query}
-				placeholder="Search posts..."
+				placeholder="Rechercher des photos..."
 				class="search-input"
 				autofocus
 			/>
-			<button type="submit" class="search-button">Search</button>
+			<button type="submit" class="search-button">Rechercher</button>
 		</form>
 
 		{
 			query && (
 				<p class="search-summary">
 					{results.length === 0
-						? `No results for "${query}"`
-						: `${results.length} result${results.length === 1 ? "" : "s"} for "${query}"`}
+						? `Aucun résultat pour « ${query} »`
+						: `${results.length} résultat${results.length === 1 ? "" : "s"} pour « ${query} »`}
 				</p>
 			)
 		}
@@ -50,11 +46,13 @@ const { items: results } = query
 					{results.map((result) => (
 						<li class="search-result">
 							<a
-								href={`/posts/${result.slug ?? result.id}`}
+								href={result.collection === "pages"
+									? `/pages/${result.slug ?? result.id}`
+									: `/photos/${result.slug ?? result.id}`}
 								class="result-link"
 							>
 								<h2 class="result-title">
-									{result.title ?? "Untitled"}
+									{result.title ?? "Sans titre"}
 								</h2>
 								{result.snippet && (
 									<p class="result-snippet" set:html={result.snippet} />
@@ -66,20 +64,22 @@ const { items: results } = query
 			)
 		}
 
-		{!query && <p class="search-hint">Enter a search term to find posts.</p>}
+		{!query && <p class="search-hint">Saisissez un mot-clé pour rechercher dans les photos.</p>}
 	</section>
 </Base>
 
 <style>
 	.search-page {
-		max-width: var(--max-width);
+		max-width: var(--content-width);
 		margin: 0 auto;
-		padding: var(--spacing-8) var(--spacing-6) var(--spacing-16);
+		padding: var(--spacing-12) var(--spacing-6) var(--spacing-16);
 	}
 
 	.search-title {
-		font-size: var(--font-size-2xl);
-		margin-bottom: var(--spacing-6);
+		font-size: var(--font-size-3xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+		margin-bottom: var(--spacing-8);
 	}
 
 	.search-form {
@@ -90,12 +90,14 @@ const { items: results } = query
 
 	.search-input {
 		flex: 1;
-		padding: var(--spacing-2) var(--spacing-4);
+		padding: var(--spacing-3) var(--spacing-4);
 		font-size: var(--font-size-base);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		background: var(--color-bg);
 		color: var(--color-text);
+		font-family: var(--font-sans);
+		transition: border-color var(--transition-fast);
 	}
 
 	.search-input:focus {
@@ -104,27 +106,31 @@ const { items: results } = query
 	}
 
 	.search-button {
-		padding: var(--spacing-2) var(--spacing-6);
-		font-size: var(--font-size-base);
+		padding: var(--spacing-3) var(--spacing-6);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
 		background: var(--color-accent);
-		color: var(--color-on-accent);
+		color: white;
 		border: none;
 		border-radius: var(--radius);
 		cursor: pointer;
-		font-weight: 500;
+		font-family: var(--font-sans);
+		transition: background var(--transition-fast);
 	}
 
 	.search-button:hover {
-		opacity: 0.9;
+		background: var(--color-accent-hover);
 	}
 
 	.search-summary {
 		color: var(--color-muted);
 		margin-bottom: var(--spacing-6);
+		font-size: var(--font-size-sm);
 	}
 
 	.search-hint {
 		color: var(--color-muted);
+		font-size: var(--font-size-sm);
 	}
 
 	.search-results {
@@ -136,12 +142,8 @@ const { items: results } = query
 	}
 
 	.search-result {
-		padding: var(--spacing-6) 0;
+		padding: var(--spacing-5) 0;
 		border-bottom: 1px solid var(--color-border-subtle);
-	}
-
-	.search-result:first-child {
-		padding-top: 0;
 	}
 
 	.search-result:last-child {
@@ -155,7 +157,7 @@ const { items: results } = query
 	}
 
 	.result-title {
-		font-size: var(--font-size-xl);
+		font-size: var(--font-size-lg);
 		font-weight: 600;
 		line-height: var(--leading-snug);
 		margin-bottom: var(--spacing-2);
@@ -167,14 +169,13 @@ const { items: results } = query
 	}
 
 	.result-snippet {
-		font-size: var(--font-size-base);
+		font-size: var(--font-size-sm);
 		line-height: var(--leading-relaxed);
 		color: var(--color-text-secondary);
 	}
 
-	/* FTS returns <mark> wrapping the matched terms */
 	.result-snippet :global(mark) {
-		background: var(--color-accent-ring, rgba(99, 102, 241, 0.2));
+		background: color-mix(in srgb, var(--color-accent) 20%, transparent);
 		color: inherit;
 		padding: 0 0.1em;
 		border-radius: 2px;

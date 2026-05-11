@@ -1,0 +1,148 @@
+---
+import { getTerm, getEntriesByTerm, getTermsForEntries } from "emdash";
+import Base from "../../layouts/Base.astro";
+import PhotoCard from "../../components/PhotoCard.astro";
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect("/404");
+
+const [term, { entries: photos, cacheHint }] = await Promise.all([
+	getTerm("genre", slug),
+	getEntriesByTerm("photos", "genre", slug, {
+		orderBy: { published_at: "desc" },
+		limit: 50,
+	}),
+]);
+
+if (!term) return Astro.redirect("/404");
+
+Astro.cache.set(cacheHint);
+
+const genresByEntry = await getTermsForEntries(
+	"photos",
+	photos.map((p) => p.data.id),
+	"genre"
+);
+---
+
+<Base
+	title={`${term.label} — Galerie`}
+	description={`Photos de genre : ${term.label}`}
+>
+	<div class="archive-page">
+		<header class="archive-header">
+			<div class="archive-breadcrumb">
+				<a href="/photos">Galerie</a>
+				<span>›</span>
+				<span>Genre</span>
+			</div>
+			<h1 class="archive-title">{term.label}</h1>
+			<p class="archive-count">
+				{photos.length} photo{photos.length !== 1 ? "s" : ""}
+			</p>
+		</header>
+
+		{
+			photos.length === 0 ? (
+				<div class="empty-state">
+					<p>Aucune photo dans ce genre pour l'instant.</p>
+					<a href="/photos" class="back-link">← Retour à la galerie</a>
+				</div>
+			) : (
+				<div class="masonry-grid">
+					{photos.map((photo, i) => (
+						<div class="masonry-item">
+							<PhotoCard
+								title={photo.data.title ?? "Sans titre"}
+								location={photo.data.location}
+								featuredImage={photo.data.featured_image}
+								href={`/photos/${photo.id}`}
+								genres={(genresByEntry.get(photo.data.id) ?? []).map((t) => ({
+									slug: t.slug,
+									label: t.label,
+								}))}
+								aspectRatio={i % 4 === 2 ? "portrait" : "landscape"}
+							/>
+						</div>
+					))}
+				</div>
+			)
+		}
+	</div>
+</Base>
+
+<style>
+	.archive-page {
+		max-width: var(--wide-width);
+		margin: 0 auto;
+		padding: var(--spacing-12) var(--spacing-8);
+	}
+
+	.archive-header {
+		margin-bottom: var(--spacing-10);
+	}
+
+	.archive-breadcrumb {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		margin-bottom: var(--spacing-4);
+	}
+
+	.archive-breadcrumb a {
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.archive-breadcrumb a:hover {
+		color: var(--color-accent-hover);
+	}
+
+	.archive-title {
+		font-size: var(--font-size-4xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+		margin-bottom: var(--spacing-2);
+	}
+
+	.archive-count {
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+	}
+
+	.masonry-grid {
+		columns: 3;
+		column-gap: var(--spacing-3);
+	}
+
+	.masonry-item {
+		break-inside: avoid;
+		margin-bottom: var(--spacing-3);
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: var(--spacing-20) var(--spacing-6);
+		color: var(--color-muted);
+	}
+
+	.back-link {
+		display: inline-block;
+		margin-top: var(--spacing-4);
+		color: var(--color-accent);
+		text-decoration: none;
+		font-size: var(--font-size-sm);
+	}
+
+	@media (max-width: 1024px) {
+		.masonry-grid { columns: 2; }
+	}
+
+	@media (max-width: 640px) {
+		.archive-page { padding: var(--spacing-8) var(--spacing-4); }
+		.archive-title { font-size: var(--font-size-2xl); }
+		.masonry-grid { columns: 1; }
+	}
+</style>

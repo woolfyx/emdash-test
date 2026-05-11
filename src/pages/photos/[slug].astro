@@ -1,0 +1,380 @@
+---
+import {
+	getEmDashEntry,
+	getEmDashCollection,
+	getEntryTerms,
+	getSeoMeta,
+	decodeSlug,
+	getSiteSettings,
+} from "emdash";
+import { Image, PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import PhotoCard from "../../components/PhotoCard.astro";
+import { resolveBlogSiteIdentity } from "../../utils/site-identity";
+
+const slug = decodeSlug(Astro.params.slug);
+if (!slug) return Astro.redirect("/404");
+
+const { entry: photo, cacheHint } = await getEmDashEntry("photos", slug);
+if (!photo) return Astro.redirect("/404");
+
+Astro.cache.set(cacheHint);
+
+function getImageUrl(img: unknown): string | undefined {
+	if (!img || typeof img !== "object") return undefined;
+	const image = img as Record<string, unknown>;
+	if (typeof image.src === "string" && image.src)
+		return image.src.startsWith("http")
+			? image.src
+			: `${Astro.url.origin}${image.src}`;
+	const meta = image.meta as Record<string, unknown> | undefined;
+	const key =
+		(typeof meta?.storageKey === "string" ? meta.storageKey : undefined) ||
+		(typeof image.id === "string" ? image.id : undefined);
+	if (key) return `${Astro.url.origin}/_emdash/api/media/file/${key}`;
+	return undefined;
+}
+
+const featuredImageUrl = getImageUrl(photo.data.featured_image);
+const { siteTitle } = resolveBlogSiteIdentity(await getSiteSettings());
+
+const seo = getSeoMeta(photo, {
+	siteTitle,
+	siteUrl: Astro.url.origin,
+	path: `/photos/${slug}`,
+	defaultOgImage: featuredImageUrl,
+});
+
+// Fetch genres, locations and related photos in parallel
+const [genres, locations, { entries: relatedPhotos }] = await Promise.all([
+	getEntryTerms("photos", photo.data.id, "genre"),
+	getEntryTerms("photos", photo.data.id, "location"),
+	getEmDashCollection("photos", {
+		orderBy: { published_at: "desc" },
+		limit: 4,
+	}),
+]);
+
+const otherPhotos = relatedPhotos.filter((p) => p.id !== photo.id).slice(0, 3);
+---
+
+<Base
+	title={seo.title}
+	description={seo.description}
+	image={featuredImageUrl}
+	type="article"
+	content={{ collection: "photos", id: photo.data.id, slug: photo.id }}
+>
+	<article class="photo-page">
+		{/* Full-width image */}
+		<div class="photo-fullwidth">
+			<Image image={photo.data.featured_image} />
+		</div>
+
+		{/* Metadata + description */}
+		<div class="photo-body">
+			<div class="photo-inner">
+				<header class="photo-header">
+					<div class="photo-meta-top">
+						{
+							genres.length > 0 && (
+								<div class="photo-genres">
+									{genres.map((g) => (
+										<a href={`/genre/${g.slug}`} class="meta-genre">
+											{g.label}
+										</a>
+									))}
+								</div>
+							)
+						}
+					</div>
+					<h1 class="photo-title">{photo.data.title}</h1>
+					{
+						photo.data.location && (
+							<p class="photo-location-label">
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+									<circle cx="12" cy="10" r="3"/>
+								</svg>
+								{photo.data.location}
+							</p>
+						)
+					}
+				</header>
+
+				{
+					photo.data.description && (
+						<div class="photo-description">
+							<PortableText value={photo.data.description} />
+						</div>
+					)
+				}
+
+				{/* EXIF / technique */}
+				{
+					(photo.data.camera || photo.data.lens || photo.data.date_taken) && (
+						<aside class="photo-exif">
+							<h2 class="exif-heading">Prise de vue</h2>
+							<dl class="exif-list">
+								{photo.data.date_taken && (
+									<>
+										<dt>Date</dt>
+										<dd>{photo.data.date_taken}</dd>
+									</>
+								)}
+								{photo.data.camera && (
+									<>
+										<dt>Appareil</dt>
+										<dd>{photo.data.camera}</dd>
+									</>
+								)}
+								{photo.data.lens && (
+									<>
+										<dt>Objectif</dt>
+										<dd>{photo.data.lens}</dd>
+									</>
+								)}
+								{locations.length > 0 && (
+									<>
+										<dt>Destination</dt>
+										<dd>
+											{locations.map((l, i) => (
+												<>
+													{i > 0 && ", "}
+													<a href={`/location/${l.slug}`} class="exif-link">
+														{l.label}
+													</a>
+												</>
+											))}
+										</dd>
+									</>
+								)}
+							</dl>
+						</aside>
+					)
+				}
+
+				<div class="photo-nav">
+					<a href="/photos" class="back-link">← Retour à la galerie</a>
+				</div>
+			</div>
+		</div>
+	</article>
+
+	{/* Related photos */}
+	{
+		otherPhotos.length > 0 && (
+			<section class="related-section">
+				<div class="related-inner">
+					<h2 class="related-title">À voir aussi</h2>
+					<div class="related-grid">
+						{otherPhotos.map((p) => (
+							<PhotoCard
+								title={p.data.title ?? "Sans titre"}
+								location={p.data.location}
+								featuredImage={p.data.featured_image}
+								href={`/photos/${p.id}`}
+							/>
+						))}
+					</div>
+				</div>
+			</section>
+		)
+	}
+</Base>
+
+<style>
+	/* Full-width image */
+	.photo-fullwidth {
+		width: 100%;
+		max-height: 90vh;
+		overflow: hidden;
+		background: var(--color-surface);
+	}
+
+	.photo-fullwidth :global(img) {
+		width: 100%;
+		height: 100%;
+		max-height: 90vh;
+		object-fit: contain;
+		background: #000;
+	}
+
+	/* Body */
+	.photo-body {
+		padding: var(--spacing-12) var(--spacing-6);
+	}
+
+	.photo-inner {
+		max-width: var(--content-width);
+		margin: 0 auto;
+	}
+
+	.photo-header {
+		margin-bottom: var(--spacing-8);
+	}
+
+	.photo-meta-top {
+		margin-bottom: var(--spacing-3);
+	}
+
+	.photo-genres {
+		display: flex;
+		gap: var(--spacing-2);
+		flex-wrap: wrap;
+	}
+
+	.meta-genre {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-accent);
+		text-decoration: none;
+		font-weight: 500;
+		transition: color var(--transition-fast);
+	}
+
+	.meta-genre:hover {
+		color: var(--color-accent-hover);
+	}
+
+	.photo-title {
+		font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-4xl));
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+		line-height: var(--leading-tight);
+		margin-bottom: var(--spacing-3);
+	}
+
+	.photo-location-label {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+	}
+
+	.photo-location-label svg {
+		flex-shrink: 0;
+		color: var(--color-accent);
+	}
+
+	/* Description */
+	.photo-description {
+		font-size: var(--font-size-lg);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--spacing-10);
+	}
+
+	.photo-description :global(p) {
+		margin-bottom: var(--spacing-4);
+	}
+
+	/* EXIF */
+	.photo-exif {
+		padding: var(--spacing-6) var(--spacing-8);
+		background: var(--color-bg-subtle);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-lg);
+		margin-bottom: var(--spacing-10);
+	}
+
+	.exif-heading {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		font-weight: 500;
+		margin-bottom: var(--spacing-4);
+	}
+
+	.exif-list {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: var(--spacing-2) var(--spacing-6);
+	}
+
+	.exif-list dt {
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		font-weight: 500;
+	}
+
+	.exif-list dd {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.exif-link {
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.exif-link:hover {
+		color: var(--color-accent-hover);
+	}
+
+	/* Nav */
+	.photo-nav {
+		padding-top: var(--spacing-6);
+		border-top: 1px solid var(--color-border-subtle);
+	}
+
+	.back-link {
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		text-decoration: none;
+		transition: color var(--transition-fast);
+	}
+
+	.back-link:hover {
+		color: var(--color-text);
+	}
+
+	/* Related */
+	.related-section {
+		border-top: 1px solid var(--color-border-subtle);
+		padding: var(--spacing-12) var(--spacing-6);
+	}
+
+	.related-inner {
+		max-width: var(--wide-width);
+		margin: 0 auto;
+	}
+
+	.related-title {
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		margin-bottom: var(--spacing-8);
+	}
+
+	.related-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--spacing-4);
+	}
+
+	@media (max-width: 768px) {
+		.related-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+
+		.photo-body {
+			padding: var(--spacing-8) var(--spacing-4);
+		}
+
+		.photo-exif {
+			padding: var(--spacing-4);
+		}
+	}
+
+	@media (max-width: 480px) {
+		.related-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

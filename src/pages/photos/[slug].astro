@@ -154,6 +154,39 @@ const otherPhotos = relatedPhotos.filter((p) => p.id !== photo.id).slice(0, 3);
 					)
 				}
 
+				{/* Additional gallery */}
+				{
+					(() => {
+						type GalleryItem = { src?: string; alt?: string; caption?: string | null; width?: number; height?: number };
+						const raw = photo.data.gallery as GalleryItem | GalleryItem[] | null | undefined;
+						if (!raw) return null;
+						const items: GalleryItem[] = Array.isArray(raw) ? raw : [raw];
+						if (items.length === 0) return null;
+						return (
+							<section class="photo-gallery">
+								<h2 class="gallery-heading">Galerie</h2>
+								<div class="gallery-grid">
+									{items.map((item) => item.src && (
+										<figure class="gallery-item">
+											<img
+												src={item.src}
+												alt={item.alt ?? ""}
+												width={item.width}
+												height={item.height}
+												loading="lazy"
+												class="gallery-img"
+											/>
+											{item.caption && (
+												<figcaption class="gallery-caption">{item.caption}</figcaption>
+											)}
+										</figure>
+									))}
+								</div>
+							</section>
+						);
+					})()
+				}
+
 				<div class="photo-nav">
 					<a href="/photos" class="back-link">← Retour à la galerie</a>
 				</div>
@@ -313,6 +346,52 @@ const otherPhotos = relatedPhotos.filter((p) => p.id !== photo.id).slice(0, 3);
 
 	.exif-link:hover {
 		color: var(--color-accent-hover);
+	}
+
+	/* Additional gallery */
+	.photo-gallery {
+		margin-bottom: var(--spacing-10);
+	}
+
+	.gallery-heading {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		font-weight: 500;
+		margin-bottom: var(--spacing-4);
+	}
+
+	.gallery-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: var(--spacing-3);
+	}
+
+	.gallery-item {
+		margin: 0;
+		overflow: hidden;
+		border-radius: var(--radius);
+		background: var(--color-bg-subtle);
+	}
+
+	.gallery-img {
+		width: 100%;
+		height: 180px;
+		object-fit: cover;
+		display: block;
+		transition: transform 0.3s ease;
+	}
+
+	.gallery-item:hover .gallery-img {
+		transform: scale(1.03);
+	}
+
+	.gallery-caption {
+		padding: var(--spacing-2) var(--spacing-3);
+		font-size: var(--font-size-xs);
+		color: var(--color-muted);
+		line-height: var(--leading-snug);
 	}
 
 	/* Nav */

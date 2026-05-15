@@ -17,6 +17,24 @@ export interface Page {
   bylines?: ContentBylineCredit[];
 }
 
+export interface Photo {
+  id: string;
+  slug: string | null;
+  status: string;
+  title: string;
+  featured_image: { id: string; src?: string; alt?: string; width?: number; height?: number };
+  description?: PortableTextBlock[];
+  location?: string;
+  date_taken?: string;
+  camera?: string;
+  lens?: string;
+  gallery?: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  bylines?: ContentBylineCredit[];
+}
+
 export interface Post {
   id: string;
   slug: string | null;
@@ -34,6 +52,7 @@ export interface Post {
 declare module "emdash" {
   interface EmDashCollections {
     pages: Page;
+    photos: Photo;
     posts: Post;
   }
 }

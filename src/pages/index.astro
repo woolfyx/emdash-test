@@ -97,18 +97,24 @@ const heroImageUrl = heroPhoto ? getHeroImageUrl(heroPhoto.data.featured_image) 
 				{gridPhotosWithGenres.length > 0 && (
 					<section class="grid-section">
 						<div class="photos-grid">
-							{gridPhotosWithGenres.map(({ photo, genres }, i) => (
-								<div class={`grid-item grid-item--${i % 5 === 0 ? "wide" : "normal"}`}>
-									<PhotoCard
-										title={photo.data.title ?? "Sans titre"}
-										location={photo.data.location}
-										featuredImage={photo.data.featured_image}
-										href={`/photos/${photo.id}`}
-										genres={genres}
-										aspectRatio={i % 5 === 0 ? "landscape" : i % 3 === 0 ? "portrait" : "landscape"}
-									/>
-								</div>
-							))}
+							{gridPhotosWithGenres.map(({ photo, genres }, i) => {
+								// Row 1: 3 equal (i=0,1,2)
+								// Row 2: wide 2/3 + normal 1/3 (i=3 wide, i=4 normal)
+								// Row 3: normal 1/3 + wide 2/3 (i=5 normal, i=6 wide)
+								const isWide = i === 3 || i === 6;
+								return (
+									<div class={`grid-item${isWide ? " grid-item--wide" : ""}`}>
+										<PhotoCard
+											title={photo.data.title ?? "Sans titre"}
+											location={photo.data.location}
+											featuredImage={photo.data.featured_image}
+											href={`/photos/${photo.id}`}
+											genres={genres}
+											aspectRatio="landscape"
+										/>
+									</div>
+								);
+							})}
 						</div>
 						<div class="grid-footer">
 							<a href="/photos" class="btn-gallery">

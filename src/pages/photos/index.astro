@@ -110,18 +110,16 @@ const activeLabel =
 					<a href="/photos" class="clear-link">Effacer les filtres</a>
 				</div>
 			) : (
-				<div class="masonry-grid">
-					{photosWithGenres.map(({ photo, genres: g }, i) => (
-						<div class="masonry-item">
-							<PhotoCard
-								title={photo.data.title ?? "Sans titre"}
-								location={photo.data.location}
-								featuredImage={photo.data.featured_image}
-								href={`/photos/${photo.id}`}
-								genres={g}
-								aspectRatio={i % 4 === 2 ? "portrait" : "landscape"}
-							/>
-						</div>
+				<div class="photos-grid">
+					{photosWithGenres.map(({ photo, genres: g }) => (
+						<PhotoCard
+							title={photo.data.title ?? "Sans titre"}
+							location={photo.data.location}
+							featuredImage={photo.data.featured_image}
+							href={`/photos/${photo.id}`}
+							genres={g}
+							aspectRatio="landscape"
+						/>
 					))}
 				</div>
 			)
@@ -215,15 +213,11 @@ const activeLabel =
 		color: white;
 	}
 
-	/* Masonry */
-	.masonry-grid {
-		columns: 3;
-		column-gap: var(--spacing-3);
-	}
-
-	.masonry-item {
-		break-inside: avoid;
-		margin-bottom: var(--spacing-3);
+	/* Grid */
+	.photos-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--spacing-3);
 	}
 
 	/* Empty */
@@ -242,8 +236,8 @@ const activeLabel =
 	}
 
 	@media (max-width: 1024px) {
-		.masonry-grid {
-			columns: 2;
+		.photos-grid {
+			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 
@@ -252,8 +246,8 @@ const activeLabel =
 			padding: var(--spacing-8) var(--spacing-4);
 		}
 
-		.masonry-grid {
-			columns: 1;
+		.photos-grid {
+			grid-template-columns: 1fr;
 		}
 
 		.filters-bar {
